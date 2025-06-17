@@ -96,7 +96,10 @@ export default function HomeScreen({ onLogout, navigation }) {
             <Text style={styles.featureDescription}>Xem lịch học hàng tuần</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.featureCard}>
+          <TouchableOpacity 
+            style={styles.featureCard}
+            onPress={() => navigation?.navigate('attendance')}
+          >
             <Text style={styles.featureIcon}>✅</Text>
             <Text style={styles.featureTitle}>Điểm Danh</Text>
             <Text style={styles.featureDescription}>Điểm danh bằng hình ảnh</Text>

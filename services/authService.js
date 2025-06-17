@@ -621,37 +621,30 @@ class AuthService {
     try {
       console.log('Removing avatar...');
       
-      const response = await this.api.delete('/api/user/remove-avatar');
-      
+      const response = await this.api.delete(API_CONFIG.ENDPOINTS.REMOVE_AVATAR);
+
       if (response.status === 200) {
         const responseData = response.data;
         
-        if (responseData.hasOwnProperty('success')) {
-          if (responseData.success === true) {
-            return {
-              success: true,
-              message: responseData.description || 'Xóa avatar thành công',
-            };
-          } else {
-            return {
-              success: false,
-              error: responseData.description || 'Không thể xóa avatar',
-            };
-          }
+        if (responseData.success === true) {
+          return {
+            success: true,
+            message: responseData.description || 'Xóa avatar thành công',
+            data: responseData.data,
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể xóa avatar',
+          };
         }
-        
-        // Fallback for different response format
-        return {
-          success: true,
-          message: 'Xóa avatar thành công',
-        };
       }
-      
+
       return {
         success: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: 'Lỗi không xác định khi xóa avatar',
       };
-      
+
     } catch (error) {
       console.error('Remove avatar error:', error);
       
@@ -662,18 +655,278 @@ class AuthService {
           error: data?.description || data?.message || `HTTP ${error.response.status}`,
           statusCode: error.response.status,
         };
-      } else if (error.request) {
+      }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
+    }
+  }
+
+  // Attendance APIs
+  async getMyAttendance() {
+    try {
+      console.log('Getting my attendance...');
+      
+      const response = await this.api.get('/api/attendance/my-attendance');
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.success === true) {
+          return {
+            success: true,
+            data: responseData.data || responseData.data_set || [],
+            pagination: responseData.pagination,
+            message: responseData.description || 'Lấy danh sách điểm danh thành công',
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể lấy danh sách điểm danh',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Lỗi không xác định khi lấy danh sách điểm danh',
+      };
+
+    } catch (error) {
+      console.error('Get attendance error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
         return {
           success: false,
-          error: 'Không thể kết nối đến server',
-          networkError: true,
-        };
-      } else {
-        return {
-          success: false,
-          error: error.message,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
         };
       }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
+    }
+  }
+
+  async addAttendance(imageUri, scheduleId, fileAlias = null) {
+    try {
+      console.log('Adding attendance...', { scheduleId, fileAlias });
+      
+      // Create FormData for multipart upload
+      const formData = new FormData();
+      
+      // Add image file
+      const filename = `attendance_${Date.now()}.jpg`;
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: filename,
+      });
+
+      // Build URL with query parameters
+      let url = `/api/attendance/add?scheduleId=${scheduleId}`;
+      if (fileAlias) {
+        url += `&fileAlias=${encodeURIComponent(fileAlias)}`;
+      }
+
+      const response = await this.api.post(url, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.success === true) {
+          return {
+            success: true,
+            data: responseData.data,
+            message: responseData.description || 'Điểm danh thành công',
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể điểm danh',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Lỗi không xác định khi điểm danh',
+      };
+
+    } catch (error) {
+      console.error('Add attendance error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
+    }
+  }
+
+  async removeAttendance(attendanceId) {
+    try {
+      console.log('Removing attendance...', attendanceId);
+      
+      const response = await this.api.delete(`/api/attendance/remove/${attendanceId}`);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.success === true) {
+          return {
+            success: true,
+            message: responseData.description || 'Xóa điểm danh thành công',
+            data: responseData.data,
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể xóa điểm danh',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Lỗi không xác định khi xóa điểm danh',
+      };
+
+    } catch (error) {
+      console.error('Remove attendance error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
+    }
+  }
+
+  // Class APIs for teachers
+  async getMyClasses() {
+    try {
+      console.log('Getting my classes...');
+      
+      const response = await this.api.get('/api/class?filter[teacher_user_name]=' + encodeURIComponent(await this.getStoredUserInfo()?.user_name || ''));
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.success === true) {
+          return {
+            success: true,
+            data: responseData.data || responseData.data_set || [],
+            pagination: responseData.pagination,
+            message: responseData.description || 'Lấy danh sách lớp thành công',
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể lấy danh sách lớp',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Lỗi không xác định khi lấy danh sách lớp',
+      };
+
+    } catch (error) {
+      console.error('Get classes error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
+    }
+  }
+
+  async getClassSchedule(classCode) {
+    try {
+      console.log('Getting class schedule...', classCode);
+      
+      const response = await this.api.get(`/api/class/class-schedule-config/${classCode}`);
+
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.success === true) {
+          return {
+            success: true,
+            data: responseData.data,
+            message: responseData.description || 'Lấy lịch học thành công',
+          };
+        } else {
+          return {
+            success: false,
+            error: responseData.description || 'Không thể lấy lịch học',
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Lỗi không xác định khi lấy lịch học',
+      };
+
+    } catch (error) {
+      console.error('Get class schedule error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      }
+      
+      return {
+        success: false,
+        error: 'Không thể kết nối đến server',
+        networkError: true,
+      };
     }
   }
 }

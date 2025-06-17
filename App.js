@@ -6,12 +6,13 @@ import HomeScreen from './screens/HomeScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import UpdateProfileScreen from './screens/UpdateProfileScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import AttendanceScreen from './screens/AttendanceScreen';
 import AuthService from './services/authService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentScreen, setCurrentScreen] = useState('login'); // 'login', 'forgotPassword', 'home', 'profile', 'updateProfile', 'changePassword'
+  const [currentScreen, setCurrentScreen] = useState('login'); // 'login', 'forgotPassword', 'home', 'profile', 'updateProfile', 'changePassword', 'attendance'
   const [screenData, setScreenData] = useState(null);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function App() {
         setCurrentScreen('profile');
         break;
       case 'profile':
+      case 'attendance':
         setCurrentScreen('home');
         break;
       default:
@@ -95,6 +97,8 @@ export default function App() {
         );
       case 'ChangePassword':
         return <ChangePasswordScreen navigation={{ navigate, goBack, replace: navigate }} />;
+      case 'attendance':
+        return <AttendanceScreen navigation={{ navigate, goBack, replace: navigate }} />;
       case 'home':
       default:
         return <HomeScreen onLogout={handleLogout} navigation={{ navigate, goBack, replace: navigate }} />;
