@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import authService from '../services/authService';
 
 const ProfileScreen = ({ navigation }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [avatarLoading, setAvatarLoading] = useState(false);
 
   useEffect(() => {
     console.log('ProfileScreen mounted, fetching profile...');
@@ -34,6 +38,120 @@ const ProfileScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAvatarPress = () => {
+    Alert.alert(
+      'Cập nhật ảnh đại diện',
+      'Chọn nguồn ảnh',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Chụp ảnh', onPress: takePhoto },
+        { text: 'Chọn từ thư viện', onPress: pickImage },
+        profile?.avatar && profile.avatar !== 'https://api.hast-app.online/ShareFiles/Avatars/default-avatar.png' 
+          ? { text: 'Xóa ảnh', onPress: removeAvatar, style: 'destructive' }
+          : null,
+      ].filter(Boolean)
+    );
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Lỗi', 'Cần quyền truy cập camera để chụp ảnh');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await updateAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi chụp ảnh');
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await updateAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi chọn ảnh');
+    }
+  };
+
+  const updateAvatar = async (imageUri) => {
+    try {
+      setAvatarLoading(true);
+      const result = await authService.updateAvatar(imageUri);
+      
+      if (result.success) {
+        Alert.alert('Thành công', 'Cập nhật ảnh đại diện thành công');
+        await fetchProfile(); // Refresh profile data
+      } else {
+        Alert.alert('Lỗi', result.error || 'Không thể cập nhật ảnh đại diện');
+      }
+    } catch (error) {
+      console.error('Error updating avatar:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi cập nhật ảnh đại diện');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    Alert.alert(
+      'Xác nhận',
+      'Bạn có chắc chắn muốn xóa ảnh đại diện?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setAvatarLoading(true);
+              const result = await authService.removeAvatar();
+              
+              if (result.success) {
+                Alert.alert('Thành công', 'Xóa ảnh đại diện thành công');
+                await fetchProfile(); // Refresh profile data
+              } else {
+                Alert.alert('Lỗi', result.error || 'Không thể xóa ảnh đại diện');
+              }
+            } catch (error) {
+              console.error('Error removing avatar:', error);
+              Alert.alert('Lỗi', 'Có lỗi xảy ra khi xóa ảnh đại diện');
+            } finally {
+              setAvatarLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleLogout = async () => {
@@ -87,13 +205,34 @@ const ProfileScreen = ({ navigation }) => {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatarPlaceholder}>
-            <Text style={styles.avatarText}>
-              {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
-            </Text>
+        <TouchableOpacity 
+          style={styles.avatarContainer}
+          onPress={handleAvatarPress}
+          disabled={avatarLoading}
+        >
+          {profile.avatar && profile.avatar !== 'https://api.hast-app.online/ShareFiles/Avatars/default-avatar.png' ? (
+            <Image 
+              source={{ uri: profile.avatar }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>
+                {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            </View>
+          )}
+          
+          {avatarLoading && (
+            <View style={styles.avatarLoading}>
+              <ActivityIndicator size="small" color="#FFF" />
+            </View>
+          )}
+          
+          <View style={styles.avatarOverlay}>
+            <Text style={styles.avatarOverlayText}>Thay đổi</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <Text style={styles.name}>{profile.full_name || 'Chưa cập nhật'}</Text>
         <Text style={styles.role}>{profile.role_name || 'Chưa xác định'}</Text>
@@ -198,6 +337,14 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     marginBottom: 20,
+    position: 'relative',
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#FFF',
   },
   avatarPlaceholder: {
     width: 100,
@@ -213,6 +360,33 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     color: '#FFF',
+  },
+  avatarLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    bottom: -5,
+    right: -5,
+    backgroundColor: '#007AFF',
+    borderRadius: 15,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  avatarOverlayText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
   },
   name: {
     fontSize: 24,
