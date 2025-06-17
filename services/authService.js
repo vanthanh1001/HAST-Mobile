@@ -79,6 +79,26 @@ class AuthService {
         // HAST API specific format
         if (responseData.hasOwnProperty('success')) {
           if (responseData.success === true) {
+            // Check if user is teacher before allowing login
+            const userInfo = responseData.user || 
+                            responseData.data || 
+                            responseData.data_set ||
+                            { username: username };
+            
+            // Check is_teacher field or role_name contains "teacher"
+            const isTeacher = userInfo.is_teacher === true || 
+                             userInfo.is_teacher === 1 ||
+                             (userInfo.role_name && userInfo.role_name.toLowerCase().includes('teacher')) ||
+                             (userInfo.role_name && userInfo.role_name.toLowerCase().includes('giáo viên'));
+            
+            if (!isTeacher) {
+              return {
+                success: false,
+                error: 'Chỉ giáo viên mới được phép đăng nhập ứng dụng mobile này.',
+                statusCode: 403,
+              };
+            }
+            
             // Successful login - look for token in various possible locations
             const token = responseData.token || 
                          responseData.access_token || 
@@ -89,21 +109,18 @@ class AuthService {
             if (token) {
               await SecureStore.setItemAsync('authToken', token);
               // Store user info if available
-              const userInfo = responseData.user || 
-                              responseData.data || 
-                              responseData.data_set ||
-                              { username: username };
               await SecureStore.setItemAsync('userInfo', JSON.stringify(userInfo));
             } else {
               // Success but no token - might be a different auth flow
               console.warn('Login successful but no token found in response');
-              await SecureStore.setItemAsync('userInfo', JSON.stringify({ username: username }));
+              await SecureStore.setItemAsync('userInfo', JSON.stringify(userInfo));
             }
             
             return {
               success: true,
               data: responseData,
               message: responseData.description || 'Đăng nhập thành công',
+              userInfo: userInfo,
             };
           } else {
             // Explicit failure from HAST API

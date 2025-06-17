@@ -12,7 +12,7 @@ import {
   ActionSheetIOS,
   Platform,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+// import * as ImagePicker from 'expo-image-picker';
 import authService from '../services/authService';
 
 const ProfileScreen = ({ navigation }) => {
@@ -21,30 +21,33 @@ const ProfileScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
 
-  const fetchProfile = async () => {
-    try {
-      const result = await authService.getProfile();
-      if (result.success) {
-        setProfile(result.data);
-      } else {
-        Alert.alert('Lỗi', result.error);
-      }
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tải thông tin profile');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   useEffect(() => {
     console.log('ProfileScreen mounted, fetching profile...');
     fetchProfile();
   }, []);
 
-  const onRefresh = () => {
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const result = await authService.getProfile();
+      
+      if (result.success) {
+        setProfile(result.data);
+      } else {
+        Alert.alert('Lỗi', result.error || 'Không thể tải thông tin profile');
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi tải thông tin profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchProfile();
+    await fetchProfile();
+    setRefreshing(false);
   };
 
   const handleLogout = async () => {
@@ -70,12 +73,12 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Chưa có thông tin';
+    if (!dateString) return 'Chưa cập nhật';
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('vi-VN');
-    } catch {
-      return dateString;
+    } catch (error) {
+      return 'Chưa cập nhật';
     }
   };
 
@@ -86,132 +89,109 @@ const ProfileScreen = ({ navigation }) => {
     return gender;
   };
 
-  const requestPermissions = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh để thay đổi avatar');
-      return false;
-    }
-    return true;
-  };
-
-  const pickImage = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      await updateAvatar(result.assets[0].uri);
-    }
+  // Tạm thời comment out avatar functionality để tránh lỗi
+  /*
+  const handleAvatarPress = () => {
+    Alert.alert(
+      'Cập nhật ảnh đại diện',
+      'Chọn nguồn ảnh',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { text: 'Chụp ảnh', onPress: takePhoto },
+        { text: 'Chọn từ thư viện', onPress: pickImage },
+        profile?.avatar && profile.avatar !== 'https://api.hast-app.online/ShareFiles/Avatars/default-avatar.png' 
+          ? { text: 'Xóa ảnh', onPress: removeAvatar, style: 'destructive' }
+          : null,
+      ].filter(Boolean)
+    );
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Lỗi', 'Cần quyền truy cập camera để chụp ảnh');
-      return;
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Lỗi', 'Cần quyền truy cập camera để chụp ảnh');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await updateAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi chụp ảnh');
     }
+  };
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      await updateAvatar(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await updateAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi chọn ảnh');
     }
   };
 
   const updateAvatar = async (imageUri) => {
-    setAvatarLoading(true);
     try {
+      setAvatarLoading(true);
       const result = await authService.updateAvatar(imageUri);
+      
       if (result.success) {
-        Alert.alert('Thành công', result.message);
-        // Refresh profile to get new avatar
-        await fetchProfile();
+        Alert.alert('Thành công', 'Cập nhật ảnh đại diện thành công');
+        await fetchProfile(); // Refresh profile data
       } else {
-        Alert.alert('Lỗi', result.error);
+        Alert.alert('Lỗi', result.error || 'Không thể cập nhật ảnh đại diện');
       }
     } catch (error) {
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi cập nhật avatar');
+      console.error('Error updating avatar:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi cập nhật ảnh đại diện');
     } finally {
       setAvatarLoading(false);
     }
   };
 
   const removeAvatar = async () => {
-    Alert.alert(
-      'Xác nhận',
-      'Bạn có chắc chắn muốn xóa avatar?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            setAvatarLoading(true);
-            try {
-              const result = await authService.removeAvatar();
-              if (result.success) {
-                Alert.alert('Thành công', result.message);
-                await fetchProfile();
-              } else {
-                Alert.alert('Lỗi', result.error);
-              }
-            } catch (error) {
-              Alert.alert('Lỗi', 'Có lỗi xảy ra khi xóa avatar');
-            } finally {
-              setAvatarLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const showAvatarOptions = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Hủy', 'Chụp ảnh', 'Chọn từ thư viện', 'Xóa avatar'],
-          destructiveButtonIndex: 3,
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          switch (buttonIndex) {
-            case 1:
-              takePhoto();
-              break;
-            case 2:
-              pickImage();
-              break;
-            case 3:
-              removeAvatar();
-              break;
-          }
-        }
-      );
-    } else {
-      Alert.alert(
-        'Chọn avatar',
-        'Bạn muốn làm gì?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Chụp ảnh', onPress: takePhoto },
-          { text: 'Chọn từ thư viện', onPress: pickImage },
-          { text: 'Xóa avatar', style: 'destructive', onPress: removeAvatar },
-        ]
-      );
+    try {
+      setAvatarLoading(true);
+      const result = await authService.removeAvatar();
+      
+      if (result.success) {
+        Alert.alert('Thành công', 'Xóa ảnh đại diện thành công');
+        await fetchProfile(); // Refresh profile data
+      } else {
+        Alert.alert('Lỗi', result.error || 'Không thể xóa ảnh đại diện');
+      }
+    } catch (error) {
+      console.error('Error removing avatar:', error);
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi xóa ảnh đại diện');
+    } finally {
+      setAvatarLoading(false);
     }
   };
+  */
 
   if (loading) {
     return (
@@ -222,100 +202,124 @@ const ProfileScreen = ({ navigation }) => {
     );
   }
 
+  if (!profile) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Không thể tải thông tin profile</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchProfile}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView
+    <ScrollView 
       style={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Thông tin cá nhân</Text>
-      </View>
-
-      {/* Avatar Section */}
-      <View style={styles.avatarSection}>
-        <TouchableOpacity 
-          style={styles.avatarContainer} 
-          onPress={showAvatarOptions}
-          disabled={avatarLoading}
-        >
-          {avatarLoading ? (
-            <View style={styles.avatarPlaceholder}>
-              <ActivityIndicator size="large" color="#007AFF" />
-            </View>
-          ) : (
-            <Image
-              source={{
-                uri: profile?.avatar || 'https://api.hast-app.online/ShareFiles/Avatars/default-avatar.png'
-              }}
+        <View style={styles.avatarContainer}>
+          {/* Tạm thời hiển thị avatar đơn giản */}
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>
+              {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          </View>
+          {/* Tạm thời comment out avatar functionality
+          <TouchableOpacity 
+            style={styles.avatarContainer} 
+            onPress={handleAvatarPress}
+            disabled={avatarLoading}
+          >
+            <Image 
+              source={{ uri: profile.avatar || 'https://api.hast-app.online/ShareFiles/Avatars/default-avatar.png' }}
               style={styles.avatar}
             />
-          )}
-          <View style={styles.avatarOverlay}>
-            <Text style={styles.avatarOverlayText}>Thay đổi</Text>
+            {avatarLoading && (
+              <View style={styles.avatarLoading}>
+                <ActivityIndicator size="small" color="#FFF" />
+              </View>
+            )}
+            <View style={styles.avatarOverlay}>
+              <Text style={styles.avatarOverlayText}>Thay đổi</Text>
+            </View>
+          </TouchableOpacity>
+          */}
+        </View>
+        <Text style={styles.name}>{profile.full_name || 'Chưa cập nhật'}</Text>
+        <Text style={styles.role}>{profile.role_name || 'Chưa xác định'}</Text>
+      </View>
+
+      <View style={styles.infoSection}>
+        <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+        
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Tên đăng nhập:</Text>
+            <Text style={styles.infoValue}>{profile.user_name || 'Chưa cập nhật'}</Text>
           </View>
-        </TouchableOpacity>
-        <Text style={styles.avatarHint}>Nhấn để thay đổi avatar</Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoValue}>{profile.email || 'Chưa cập nhật'}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Số điện thoại:</Text>
+            <Text style={styles.infoValue}>{profile.phone || 'Chưa cập nhật'}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Giới tính:</Text>
+            <Text style={styles.infoValue}>{formatGender(profile.gender)}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Ngày sinh:</Text>
+            <Text style={styles.infoValue}>{formatDate(profile.dob)}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Trạng thái:</Text>
+            <Text style={[styles.infoValue, styles.statusActive]}>
+              {profile.status || 'Chưa xác định'}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.profileCard}>
-        <ProfileField
-          label="Tên đăng nhập"
-          value={profile?.user_name || profile?.username || 'Chưa có thông tin'}
-        />
-        <ProfileField
-          label="Họ và tên"
-          value={profile?.full_name || profile?.fullName || 'Chưa có thông tin'}
-        />
-        <ProfileField
-          label="Email"
-          value={profile?.email || 'Chưa có thông tin'}
-        />
-        <ProfileField
-          label="Số điện thoại"
-          value={profile?.phone || 'Chưa có thông tin'}
-        />
-        <ProfileField
-          label="Giới tính"
-          value={formatGender(profile?.gender)}
-        />
-        <ProfileField
-          label="Ngày sinh"
-          value={formatDate(profile?.dob || profile?.date_of_birth)}
-        />
-        <ProfileField
-          label="Vai trò"
-          value={profile?.role_name || profile?.role || 'Chưa có thông tin'}
-        />
+      <View style={styles.actionSection}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('UpdateProfile', { profile })}
+        >
+          <Text style={styles.actionButtonText}>📝 Cập nhật thông tin</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('ChangePassword')}
+        >
+          <Text style={styles.actionButtonText}>🔒 Đổi mật khẩu</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.backButton]}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={[styles.actionButtonText, styles.backButtonText]}>← Quay lại</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.buttonContainer}>
+      <View style={styles.logoutSection}>
         <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            console.log('Navigating to UpdateProfile with profile:', profile);
-            navigation.navigate('UpdateProfile', { profile });
-          }}
-        >
-          <Text style={styles.buttonText}>Cập nhật thông tin</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            console.log('Navigating to ChangePassword');
-            navigation.navigate('ChangePassword');
-          }}
-        >
-          <Text style={styles.buttonText}>Đổi mật khẩu</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.logoutButton]}
+          style={[styles.logoutButton, styles.actionButton]}
           onPress={handleLogout}
         >
-          <Text style={[styles.buttonText, styles.logoutButtonText]}>
+          <Text style={[styles.logoutButtonText, styles.actionButtonText]}>
             Đăng xuất
           </Text>
         </TouchableOpacity>
@@ -324,138 +328,168 @@ const ProfileScreen = ({ navigation }) => {
   );
 };
 
-const ProfileField = ({ label, value }) => (
-  <View style={styles.fieldContainer}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <Text style={styles.fieldValue}>{value}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
     color: '#666',
   },
-  header: {
-    backgroundColor: '#007AFF',
-    padding: 20,
-    paddingTop: 60,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
-  avatarSection: {
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 20,
+    backgroundColor: '#f5f5f5',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   avatarContainer: {
+    marginBottom: 15,
     position: 'relative',
-    marginBottom: 8,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: 'white',
   },
   avatarPlaceholder: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: 'white',
-  },
-  avatarOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#007AFF',
-    borderRadius: 15,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  avatarOverlayText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  avatarHint: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  profileCard: {
-    backgroundColor: 'white',
-    margin: 16,
-    borderRadius: 12,
-    padding: 20,
+    borderColor: '#FFF',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  fieldContainer: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  avatarText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFF',
   },
-  fieldLabel: {
-    fontSize: 14,
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  role: {
+    fontSize: 16,
     color: '#666',
-    marginBottom: 4,
-    fontWeight: '500',
+    fontStyle: 'italic',
   },
-  fieldValue: {
+  infoSection: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  infoCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  infoLabel: {
+    fontSize: 16,
+    color: '#666',
+    flex: 1,
+  },
+  infoValue: {
     fontSize: 16,
     color: '#333',
-    fontWeight: '400',
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
   },
-  buttonContainer: {
-    margin: 16,
-    gap: 12,
+  statusActive: {
+    color: '#4CAF50',
   },
-  button: {
+  actionSection: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  actionButton: {
     backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  buttonText: {
-    color: 'white',
+  actionButtonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  backButton: {
+    backgroundColor: '#6C757D',
+  },
+  backButtonText: {
+    color: '#FFF',
+  },
+  logoutSection: {
+    padding: 20,
+    paddingTop: 0,
   },
   logoutButton: {
     backgroundColor: '#FF3B30',
-    marginTop: 8,
   },
   logoutButtonText: {
-    color: 'white',
+    color: '#FFF',
   },
 });
 
