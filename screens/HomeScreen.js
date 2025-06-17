@@ -11,7 +11,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import AuthService from '../services/authService';
 
-export default function HomeScreen({ onLogout }) {
+export default function HomeScreen({ onLogout, navigation }) {
   const [userInfo, setUserInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -75,6 +75,13 @@ export default function HomeScreen({ onLogout }) {
               <Text style={styles.userText}>Tên: {userInfo.fullName || 'Chưa cập nhật'}</Text>
               <Text style={styles.userText}>Email: {userInfo.email || 'Chưa cập nhật'}</Text>
               <Text style={styles.userText}>Username: {userInfo.userName || 'Chưa cập nhật'}</Text>
+              
+              <TouchableOpacity
+                style={styles.profileButton}
+                onPress={() => navigation?.navigate('profile')}
+              >
+                <Text style={styles.profileButtonText}>Xem chi tiết profile</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <Text style={styles.userText}>Đang tải thông tin...</Text>
@@ -217,5 +224,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  profileButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  profileButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 }); 

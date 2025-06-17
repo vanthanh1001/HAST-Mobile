@@ -334,6 +334,331 @@ class AuthService {
       };
     }
   }
+
+  async getProfile() {
+    try {
+      console.log('Getting user profile...');
+      
+      const response = await this.api.get('/api/user/profile');
+      
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.hasOwnProperty('success')) {
+          if (responseData.success === true) {
+            return {
+              success: true,
+              data: responseData.data || responseData.data_set,
+              message: responseData.description || 'Lấy thông tin profile thành công',
+            };
+          } else {
+            return {
+              success: false,
+              error: responseData.description || 'Không thể lấy thông tin profile',
+            };
+          }
+        }
+        
+        // Fallback for different response format
+        return {
+          success: true,
+          data: responseData,
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+      
+    } catch (error) {
+      console.error('Get profile error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server',
+          networkError: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
+  }
+
+  async updateProfile(profileData) {
+    try {
+      console.log('Updating user profile...', profileData);
+      
+      const response = await this.api.put('/api/user/update', profileData);
+      
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.hasOwnProperty('success')) {
+          if (responseData.success === true) {
+            // Update stored user info
+            const currentUserInfo = await this.getStoredUserInfo();
+            const updatedUserInfo = { ...currentUserInfo, ...profileData };
+            await SecureStore.setItemAsync('userInfo', JSON.stringify(updatedUserInfo));
+            
+            return {
+              success: true,
+              data: responseData.data || responseData.data_set,
+              message: responseData.description || 'Cập nhật thông tin thành công',
+            };
+          } else {
+            return {
+              success: false,
+              error: responseData.description || 'Không thể cập nhật thông tin',
+            };
+          }
+        }
+        
+        // Fallback for different response format
+        return {
+          success: true,
+          data: responseData,
+          message: 'Cập nhật thông tin thành công',
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+      
+    } catch (error) {
+      console.error('Update profile error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server',
+          networkError: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
+  }
+
+  async changePassword(oldPassword, newPassword, confirmNewPassword) {
+    try {
+      console.log('Changing password...');
+      
+      const response = await this.api.put('/api/auth/update-password', {
+        old_password: oldPassword,
+        new_password: newPassword,
+        confirm_new_password: confirmNewPassword,
+      });
+      
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.hasOwnProperty('success')) {
+          if (responseData.success === true) {
+            return {
+              success: true,
+              message: responseData.description || 'Đổi mật khẩu thành công',
+            };
+          } else {
+            return {
+              success: false,
+              error: responseData.description || 'Không thể đổi mật khẩu',
+            };
+          }
+        }
+        
+        // Fallback for different response format
+        return {
+          success: true,
+          message: 'Đổi mật khẩu thành công',
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+      
+    } catch (error) {
+      console.error('Change password error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server',
+          networkError: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
+  }
+
+  async updateAvatar(imageUri) {
+    try {
+      console.log('Updating avatar...', imageUri);
+      
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'avatar.jpg',
+      });
+
+      const response = await this.api.put('/api/user/update-avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.hasOwnProperty('success')) {
+          if (responseData.success === true) {
+            return {
+              success: true,
+              data: responseData.data || responseData.data_set,
+              message: responseData.description || 'Cập nhật avatar thành công',
+            };
+          } else {
+            return {
+              success: false,
+              error: responseData.description || 'Không thể cập nhật avatar',
+            };
+          }
+        }
+        
+        // Fallback for different response format
+        return {
+          success: true,
+          message: 'Cập nhật avatar thành công',
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+      
+    } catch (error) {
+      console.error('Update avatar error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server',
+          networkError: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
+  }
+
+  async removeAvatar() {
+    try {
+      console.log('Removing avatar...');
+      
+      const response = await this.api.delete('/api/user/remove-avatar');
+      
+      if (response.status === 200) {
+        const responseData = response.data;
+        
+        if (responseData.hasOwnProperty('success')) {
+          if (responseData.success === true) {
+            return {
+              success: true,
+              message: responseData.description || 'Xóa avatar thành công',
+            };
+          } else {
+            return {
+              success: false,
+              error: responseData.description || 'Không thể xóa avatar',
+            };
+          }
+        }
+        
+        // Fallback for different response format
+        return {
+          success: true,
+          message: 'Xóa avatar thành công',
+        };
+      }
+      
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+      };
+      
+    } catch (error) {
+      console.error('Remove avatar error:', error);
+      
+      if (error.response) {
+        const data = error.response.data;
+        return {
+          success: false,
+          error: data?.description || data?.message || `HTTP ${error.response.status}`,
+          statusCode: error.response.status,
+        };
+      } else if (error.request) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server',
+          networkError: true,
+        };
+      } else {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+    }
+  }
 }
 
 export default new AuthService(); 

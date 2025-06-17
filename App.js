@@ -3,12 +3,16 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import LoginScreen from './LoginScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import HomeScreen from './screens/HomeScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import UpdateProfileScreen from './screens/UpdateProfileScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import AuthService from './services/authService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentScreen, setCurrentScreen] = useState('login'); // 'login', 'forgotPassword'
+  const [currentScreen, setCurrentScreen] = useState('login'); // 'login', 'forgotPassword', 'home', 'profile', 'updateProfile', 'changePassword'
+  const [screenData, setScreenData] = useState(null);
 
   useEffect(() => {
     checkAuthStatus();
@@ -28,6 +32,7 @@ export default function App() {
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
+    setCurrentScreen('home');
   };
 
   const handleLogout = () => {
@@ -43,6 +48,30 @@ export default function App() {
     setCurrentScreen('login');
   };
 
+  // Navigation methods
+  const navigate = (screenName, params = null) => {
+    setCurrentScreen(screenName);
+    setScreenData(params);
+  };
+
+  const goBack = () => {
+    // Simple back navigation logic
+    console.log('Going back from:', currentScreen); // Debug log
+    switch (currentScreen) {
+      case 'UpdateProfile':
+      case 'ChangePassword':
+        setCurrentScreen('profile');
+        break;
+      case 'profile':
+        setCurrentScreen('home');
+        break;
+      default:
+        setCurrentScreen('home');
+        break;
+    }
+    setScreenData(null);
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -52,7 +81,24 @@ export default function App() {
   }
 
   if (isAuthenticated) {
-    return <HomeScreen onLogout={handleLogout} />;
+    // Handle authenticated screens
+    console.log('Current screen:', currentScreen); // Debug log
+    switch (currentScreen) {
+      case 'profile':
+        return <ProfileScreen navigation={{ navigate, goBack, replace: navigate }} />;
+      case 'UpdateProfile':
+        return (
+          <UpdateProfileScreen 
+            navigation={{ navigate, goBack, replace: navigate }} 
+            route={{ params: screenData }}
+          />
+        );
+      case 'ChangePassword':
+        return <ChangePasswordScreen navigation={{ navigate, goBack, replace: navigate }} />;
+      case 'home':
+      default:
+        return <HomeScreen onLogout={handleLogout} navigation={{ navigate, goBack, replace: navigate }} />;
+    }
   }
 
   // Handle auth screens navigation
